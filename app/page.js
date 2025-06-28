@@ -1,103 +1,140 @@
+"use client";
+import Provider from "./provider"; // ✅ same folder
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/app/provider"; // adjust if needed
+import { useEffect, useState } from "react";
+
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { user } = useUser();
+  const router = useRouter();
+ const [mounted, setMounted] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  
+  useEffect(() => {
+    setMounted(true);  // ensure rendering only on client
+  }, []);
+
+
+  const handleDashboardClick = () => {
+    if (user) {
+      router.push("/dashboard");
+    } else {
+      router.push("/auth");
+    }
+  };
+   if (!mounted) return null;
+  return (
+    <Provider>
+      <div className="min-h-screen bg-gradient-to-b from-white to-blue-50">
+        {/* Navbar */}
+        <nav className="flex justify-between items-center px-8 py-4">
+          <div className="flex items-center space-x-2">
+            <Image src="/logo.png" alt="Logo" width={40} height={40} />
+            <span className="text-xl font-bold">AIcruiter</span>
+          </div>
+          <div className="space-x-6 hidden md:flex">
+            <button onClick={handleDashboardClick} className="text-gray-700 hover:text-black">Features</button>
+            <button onClick={handleDashboardClick} className="text-gray-700 hover:text-black">How It Works</button>
+            <button onClick={handleDashboardClick} className="text-gray-700 hover:text-black">Pricing</button>
+          </div>
+          <button
+            onClick={handleDashboardClick}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+            Dashboard
+          </button>
+        </nav>
+
+        {/* Hero section */}
+        <section className="flex flex-col md:flex-row items-center justify-between px-8 md:px-16 py-16">
+          <div className="md:w-1/2 space-y-6">
+            <h1 className="text-4xl md:text-5xl font-extrabold">
+              AI-Powered <span className="text-blue-600">Interview Assistant</span> for Modern Recruiters
+            </h1>
+            <p className="text-gray-700">
+              Let our AI voice agent conduct candidate interviews while you focus on finding the perfect match.
+              Save time, reduce bias, and improve your hiring process.
+            </p>
+            <div className="space-x-4">
+              <button onClick={handleDashboardClick} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Create Interview</button>
+              <button onClick={handleDashboardClick} className="border px-4 py-2 rounded hover:bg-gray-100 transition">Watch Demo</button>
+            </div>
+          </div>
+          <div className="md:w-1/2 mt-8 md:mt-0">
+            <Image src="/dashboard.png" alt="Dashboard Preview" width={600} height={400} className="" />
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" className="py-16 bg-white">
+          <h2 className="text-3xl font-bold text-center mb-4">Streamline Your Hiring Process</h2>
+          <p className="text-center text-gray-700 mb-8">
+            AIcruiter helps you save time and find better candidates with our advanced AI interview technology.
+          </p>
+          <div className="flex flex-col md:flex-row justify-center items-center gap-8 px-8">
+            <FeatureCard
+              icon="/feature1.png"
+              title="Save Time"
+              description="Automate initial screening interviews and focus on final candidates."
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <FeatureCard
+              icon="/feature2.png"
+              title="Data-Driven Insights"
+              description="Get detailed analytics and candidate comparisons based on interview responses."
+            />
+            <FeatureCard
+              icon="/feature3.png"
+              title="Reduce Bias"
+              description="Standardized interviews help eliminate unconscious bias in the hiring process."
+            />
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how-it-works" className="py-16 bg-gray-50">
+          <h2 className="text-3xl font-bold text-center mb-4">How AIcruiter Works</h2>
+          <p className="text-center text-gray-700 mb-8">Three simple steps to transform your recruitment process</p>
+          <div className="flex flex-col md:flex-row justify-center items-center gap-8 px-8">
+            <StepCard number="1" title="Create Interview" description="Set up your job requirements and customize interview questions." />
+            <StepCard number="2" title="Share with Candidates" description="Send interview links to candidates to complete at their convenience." />
+            <StepCard number="3" title="Review Results" description="Get AI-analyzed results, transcripts, and candidate comparisons." />
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="py-16 bg-white text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Hiring Process?</h2>
+          <p className="text-gray-700 mb-6">Join hundreds of companies already using AIcruiter to find the best talent.</p>
+          <div className="space-x-4">
+            <button onClick={handleDashboardClick} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Get Started for Free</button>
+            <button onClick={handleDashboardClick} className="border px-4 py-2 rounded hover:bg-gray-100 transition">Schedule a Demo</button>
+          </div>
+        </section>
+      </div>
+    </Provider>
+  );
+}
+
+// Reusable feature card
+function FeatureCard({ icon, title, description }) {
+  return (
+    <div className="bg-white rounded shadow p-6 text-center w-64">
+      <Image src={icon} alt={title} width={48} height={48} className="mx-auto mb-4" />
+      <h3 className="font-semibold mb-2">{title}</h3>
+      <p className="text-gray-600 text-sm">{description}</p>
+    </div>
+  );
+}
+
+// Reusable step card
+function StepCard({ number, title, description }) {
+  return (
+    <div className="flex flex-col items-center text-center w-64">
+      <div className="bg-blue-100 text-blue-700 rounded-full w-12 h-12 flex items-center justify-center mb-4 font-semibold">{number}</div>
+      <h3 className="font-semibold mb-2">{title}</h3>
+      <p className="text-gray-600 text-sm">{description}</p>
     </div>
   );
 }
