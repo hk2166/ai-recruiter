@@ -1,205 +1,272 @@
 "use client";
-import { InterviewDataContext } from '@/context/InterviewDataContext';
 import { Loader2Icon, Mic, Phone, Timer } from 'lucide-react';
 import Image from 'next/image';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Vapi from '@vapi-ai/web';
 import AlertConfirm from './_components/AlertConfirm';
 import { toast } from 'sonner';
 import { supabase } from '@/services/supabaseClient';
 import { useParams, useRouter } from 'next/navigation';
-import axios from 'axios';
 
 function StartInterview() {
-  const { interviewInfo } = useContext(InterviewDataContext);
-  const [activeUser, setActiveUser] = useState(false);
-  const [conversation, setConversation] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [vapi, setVapi] = useState(null);
-  const { interview_id } = useParams();
-  const router = useRouter();
+  const [interviewInfo, setInterviewInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [vapi, setVapi] = useState(null);
+  const { interview_id } = useParams();
+  const router = useRouter();
+  const [resumeData, setResumeData] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isResumeInterview, setIsResumeInterview] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
 
-  // Initialize Vapi once
-  useEffect(() => {
-    const instance = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
-    setVapi(instance);
-    return () => instance.stop();
-  }, []);
+  useEffect(() => {
+    const fetchInterviewData = async () => {
+      if (!interview_id) return;
+      setLoading(true);
 
-  // Start interview when info is ready and vapi is ready
-  useEffect(() => {
-    if (interviewInfo && vapi) startCall();
-  }, [interviewInfo, vapi]);
+      const { data: interviewDetails, error: interviewError } = await supabase
+        .from('Interviews')
+        .select('*')
+        .eq('interview_id', interview_id)
+        .single();
 
-  const startCall = () => {
-    console.log("startCall() called");
+      if (interviewError) {
+        toast.error('Interview not found.');
+        setLoading(false);
+        router.push('/');
+        return;
+      }
 
-    let rawList = interviewInfo?.interviewData?.questionList;
-
-    if (typeof rawList === "string") {
-      try {
-        rawList = JSON.parse(rawList);
-      } catch (e) {
-        console.error("Failed to parse questionList JSON:", rawList);
-        return;
+      let candidateName = 'Candidate';
+      const { data: feedbackData } = await supabase
+        .from('interview-feedback')
+        .select('userName')
+        .eq('interview_id', interview_id);
+      
+      if (feedbackData && feedbackData.length > 0) {
+        candidateName = feedbackData[0].userName;
       }
+
+      const finalInterviewInfo = {
+        ...interviewDetails,
+        username: candidateName
+      };
+      setInterviewInfo(finalInterviewInfo);
+      
+      const durationInMinutes = parseInt(finalInterviewInfo.duration, 10) || 5;
+      setTimeLeft(durationInMinutes * 60);
+
+      const isResumeType = finalInterviewInfo.type === 'resume-based';
+      
+      if (isResumeType) {
+        setIsResumeInterview(true);
+        const { data: resume, error: resumeError } = await supabase
+          .from('resumes')
+          .select('resumeText')
+          .eq('interview_id', interview_id)
+          .single();
+
+
+        
+        if (resumeError) {
+          toast.error('Could not load the resume for this interview.');
+        } else {
+          setResumeData(resume);
+        }
+      } else {
+        setIsResumeInterview(false);
+      }
+      setLoading(false);
+    };
+
+    fetchInterviewData();
+  }, [interview_id, router]);
+
+  useEffect(() => {
+    if (isCallActive && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft(prevTime => prevTime > 0 ? prevTime - 1 : 0);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (timeLeft === 0 && isCallActive) {
+      stopInterview();
+    }
+  }, [timeLeft, isCallActive]);
+
+  const formatTime = (seconds) => {
+    if (isNaN(seconds) || seconds < 0) {
+        return "00:00";
     }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
-    if (!Array.isArray(rawList)) {
-      console.error("questionList is still not an array:", rawList);
-      return;
-    }
+  useEffect(() => {
+    const instance = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
+    setVapi(instance);
+    return () => instance.stop();
+  }, []);
 
-    const questionList = rawList.map(item => item?.question).filter(Boolean).join(", ");
+  useEffect(() => {
+    if (loading || !vapi || !interviewInfo || isCallActive) {
+      return;
+    }
+    
+    if (isResumeInterview && !resumeData) {
+      return;
+    }
 
-    const assistantOptions = {
-      name: "AI Recruiter",
-      firstMessage: `Hi ${interviewInfo?.username}, how are you? Ready for your interview on ${interviewInfo?.interviewData?.jobPosition}?`,
-      transcriber: {
-        provider: "deepgram",
-        model: "nova-2",
-        language: "en-US",
-      },
-      voice: {
-        provider: "vapi",
-        voiceId: "Neha",
-      },
-      model: {
-        provider: "openai",
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `
-You are an AI voice assistant conducting interviews.
-Begin with a friendly introduction.
-Ask these questions one by one: ${questionList}
-Offer hints if the candidate struggles.
-After 5–7 questions, wrap up and end on a positive note.
-            `.trim(),
-          },
-        ],
-      },
-    };
+    startCall();
+  }, [interviewInfo, vapi, resumeData, loading, isResumeInterview, isCallActive]);
 
-    vapi.start(assistantOptions);
-  };
+  const startCall = () => {
+    let systemContent = '';
+    let firstMessage = '';
+    const interviewData = interviewInfo || {};
 
-  const stopInterview = () => {
-    vapi?.stop();
-    toast("Interview Ended");
-    console.log("Final conversation:", conversation);
-  };
+    if (isResumeInterview) {
+      systemContent = `
+You are an AI voice assistant conducting a professional job interview.
+Your primary goal is to evaluate the candidate based on the resume provided.
+**Candidate's Resume:**
+---
+${resumeData.resumeText}
+---
+**Your Task:**
+1. Start with a friendly introduction for the role of ${interviewData.jobPosition}.
+2. Ask insightful questions directly related to the candidate's experience, projects, and skills listed in their resume.
+3. Maintain a professional and encouraging tone.
+      `.trim();
+      firstMessage = `Hi ${interviewInfo.username}, thank you for providing your resume. Are you ready to begin your interview for the ${interviewData.jobPosition}?`;
+    } else {
+      let rawList = interviewData.questionList;
+      
+      if (typeof rawList === 'string') {
+        try {
+          rawList = JSON.parse(rawList);
+        } catch (e) {
+          console.error("Failed to parse questionList JSON:", e);
+          rawList = [];
+        }
+      }
 
-  // Listen for Vapi events
-  useEffect(() => {
-    if (!vapi) return;
+      const questionList = (Array.isArray(rawList) ? rawList : [])
+        .map(item => item?.question)
+        .filter(Boolean)
+        .join(" - ");
+      
+      if (!questionList) {
+        toast.error("Could not load interview questions. The list is empty.");
+        console.error("Aborting startCall because questionList is empty. Check data format in Supabase.");
+        return;
+      }
 
-    const handleMessage = (message) => {
-      console.log("Vapi message:", message);
-      if (message.type === 'model-output' && message.output) {
-        setConversation(prev => [...prev, { role: 'assistant', content: message.output }]);
-      } else if (message.type === 'voice-input' && message.input) {
-        setConversation(prev => [...prev, { role: 'user', content: message.input }]);
-      }
-    };
+      systemContent = `
+You are an AI voice assistant conducting a job interview for the position of ${interviewData.jobPosition}.
+Your task is to ask the candidate the following questions one by one.
+**Interview Questions:**
+- ${questionList}
+      `.trim();
+      firstMessage = `Hi ${interviewInfo.username}, welcome to your interview for the ${interviewData.jobPosition} role. Shall we begin with the first question?`;
+    }
 
-    const handleCallStart = () => {
-      console.log('Call started');
-      toast("Call Connected");
-    };
+    const assistantOptions = {
+        name: "AI Recruiter",
+        firstMessage,
+        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
+        voice: { provider: "vapi", voiceId: "Neha" },
+        model: {
+          provider: "openai",
+          model: "gpt-4",
+          messages: [{ role: "system", content: systemContent }],
+        },
+    };
 
-    const handleSpeechStart = () => setActiveUser(false);
-    const handleSpeechEnd = () => setActiveUser(true);
+    vapi.start(assistantOptions);
+  };
 
-    const handleCallEnd = () => {
-      console.log('Call ended');
-      toast("Interview Ended");
-      generateFeedback();
-    };
+  const stopInterview = () => {
+    setIsCallActive(false);
+    vapi?.stop();
+  };
 
-    vapi.on("message", handleMessage);
-    vapi.on("call-start", handleCallStart);
-    vapi.on("speech-start", handleSpeechStart);
-    vapi.on("speech-end", handleSpeechEnd);
-    vapi.on("call-end", handleCallEnd);
 
-    return () => {
-      vapi.off("message", handleMessage);
-      vapi.off("call-start", handleCallStart);
-      vapi.off("speech-start", handleSpeechStart);
-      vapi.off("speech-end", handleSpeechEnd);
-      vapi.off("call-end", handleCallEnd);
-    };
-  }, [vapi]);
 
-  const generateFeedback = async () => {
-    if (loading) return;
-    toast("Generating feedback... This might take a few seconds.");
-    setLoading(true);
 
-    try {
-      const result = await axios.post('/api/ai-feedback', { conversation });
-      const content = result?.data?.content;
-      const finalContent = content.replace('```json', '').replace('```', '');
+  useEffect(() => {
+    if (!vapi) return;
+    const handleCallStart = () => { 
+        toast("Call Connected"); 
+        setIsCallActive(true); 
+    };
+    const handleCallEnd = () => { 
+        toast("Interview Ended"); 
 
-      const { data } = await supabase.from('interview-feedback').insert([{
-        userName: interviewInfo?.username,
-        userEmail: interviewInfo?.userEmail,
-        interview_id: interview_id,
-        feedback: JSON.parse(finalContent),
-        recommended: false,
-      }]);
+        setIsCallActive(false); 
+    };
+    vapi.on("call-start", handleCallStart);
+    vapi.on("call-end", handleCallEnd);
+    return () => {
+      vapi.off("call-start", handleCallStart);
+      vapi.off("call-end", handleCallEnd);
+    };
+  }, [vapi]);
 
-      console.log(data);
-      router.replace('/interview/' + interview_id + '/completed');
-    } catch (error) {
-      console.error("Feedback generation failed:", error);
-      toast("Failed to generate feedback.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+    
 
-  return (
-    <div className='p-20 lg:px-48 xl:px-56'>
-      <div className='flex justify-between items-center'>
-        <h2 className='font-bold text-xl'>AI Interview Session</h2>
-        <span className='flex gap-2 items-center'>
-          <Timer /> 00:00:00
-        </span>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mt-5">
-        <div className="bg-white h-[400px] rounded-lg border flex items-center justify-center flex-col gap-3">
-          <div className='relative'>
-            {!activeUser && <span className='absolute inset-0 rounded-full bg-blue-500 opacity-75 animate-ping'></span>}
-            <Image src={'/ai.png'} width={100} height={100} alt='AI' className='w-[60px] h-[60px] rounded-full object-cover' />
-          </div>
-          <h2>AI Recruiter</h2>
-        </div>
 
-        <div className="bg-white h-[400px] rounded-lg border flex items-center justify-center flex-col gap-3">
-          <div className='relative'>
-            {activeUser && <span className='absolute inset-0 rounded-full bg-blue-500 opacity-75 animate-ping'></span>}
-            <h2 className='text-2xl bg-primary text-white p-3 rounded-full px-5'>
-              {interviewInfo?.username ? interviewInfo.username[0] : '👤'}
-            </h2>
-          </div>
-          <h2>{interviewInfo?.username}</h2>
-        </div>
-      </div>
+  if (loading) {
+    return <div className="p-10 flex justify-center items-center h-screen"><Loader2Icon className="animate-spin h-8 w-8" /> <span className="ml-2">Loading Interview...</span></div>;
+  }
 
-      <div className='flex items-center gap-5 justify-center mt-7'>
-        <Mic className='h-12 w-12 p-3 bg-gray-500 text-white rounded-full cursor-pointer' />
-        <AlertConfirm stopInterview={stopInterview}>
-          {!loading
-            ? <Phone className='h-12 w-12 p-3 bg-red-500 text-white rounded-full cursor-pointer' />
-            : <Loader2Icon className='animate-spin' />}
-        </AlertConfirm>
-      </div>
-    </div>
-  );
+  return (
+    <div className='p-5 md:p-10 lg:p-20 bg-gray-50 min-h-screen'>
+        <div className='max-w-7xl mx-auto'>
+            <div className='flex flex-col sm:flex-row justify-between items-center mb-8 gap-4'>
+                <h2 className='font-bold text-2xl text-gray-800'>AI Interview Session</h2>
+                <span className='flex gap-2 items-center bg-red-500 text-white px-4 py-2 rounded-full shadow-lg'>
+                    <Timer size={20} /> <span className='font-mono text-lg font-semibold tracking-wider'>{formatTime(timeLeft)}</span>
+                </span>
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-center items-stretch gap-10">
+                {/* AI Panel */}
+                <div className="w-full md:w-1/2 lg:w-[450px] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col items-center justify-center p-6 gap-5 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                    <Image src={'/ai.png'} width={120} height={120} alt='AI Recruiter' className='rounded-full object-cover border-4 border-indigo-200 p-1' />
+                    <h2 className='font-semibold text-gray-700 text-2xl'>AI Recruiter</h2>
+                    <div className='flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full'>
+                      <div className={`w-3 h-3 rounded-full transition-colors ${isCallActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                      <span className='text-sm text-gray-600 font-medium'>{isCallActive ? 'Active' : 'Not Connected'}</span>
+                    </div>
+                </div>
+                {/* Candidate Panel */}
+                <div className="w-full md:w-1/2 lg:w-[450px] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col items-center justify-center p-6 gap-5 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                    <div className='bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center w-32 h-32 rounded-full shadow-lg'>
+                        <span className='text-6xl font-extrabold'>
+                            {interviewInfo?.username ? interviewInfo.username[0].toUpperCase() : 'C'}
+                        </span>
+                    </div>
+                    <h2 className='font-semibold text-gray-700 text-2xl'>{interviewInfo?.username || 'Candidate'}</h2>
+                </div>
+            </div>
+
+            <div className='flex items-center gap-8 justify-center mt-12'>
+                <div className='p-4 bg-gray-200 rounded-full cursor-not-allowed'>
+                    <Mic className='h-12 w-12 text-gray-400' />
+                </div>
+                {/* This is the corrected usage that prevents the error */}
+                <AlertConfirm onConfirm={stopInterview}>
+                    <div className='p-5 bg-red-500 hover:bg-red-600 transition-colors rounded-full cursor-pointer shadow-lg hover:shadow-xl'>
+                        <Phone className='h-12 w-12 text-white' />
+                    </div>
+                </AlertConfirm>
+            </div>
+        </div>
+    </div>
+  );
 }
 
 export default StartInterview;
