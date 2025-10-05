@@ -26,6 +26,12 @@ export const SideBarOptions = [
         icon : Settings,
         path: '/settings',
     },
+    {
+    name: 'ATS Score Analyzer',
+    icon : PuzzleIcon,
+    path: '/ats-analyzer',
+},
+
 ]
 
 export const InterviewType = [
