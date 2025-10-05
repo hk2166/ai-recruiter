@@ -5,6 +5,9 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import dynamic from 'next/dynamic';
+
+const ParseResume = dynamic(() => import('../dashboard/resume/_components/ParseResume'), { ssr: false });
 
 const ATSPage = () => {
     const [resume, setResume] = useState('');
@@ -151,6 +154,7 @@ const ATSPage = () => {
                 </div>
             </div>
         )}
+        <ParseResume />
     </div>
   )
 }
