@@ -1,13 +1,22 @@
-import React from "react";
-import ParseResume from "./_components/ParseResume"; // adjust the path if needed
 
-function Resume() {
+"use client";
+import React from "react";
+import dynamic from "next/dynamic";
+
+const ParseResume = dynamic(
+  () => import("./_components/ParseResume"),
+  {
+    ssr: false,
+  }
+);
+
+const Page = () => {
   return (
-    <div className="p-8 min-h-screen bg-gray-50">
-      <h1 className="text-2xl font-bold mb-6">Resume Based Interview</h1>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">ATS Analyzer</h1>
       <ParseResume />
     </div>
   );
-}
+};
 
-export default Resume;
+export default Page;
