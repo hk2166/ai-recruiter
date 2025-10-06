@@ -53,7 +53,7 @@ Follow these instructions to set up the project on your local machine.
 
     #### Where to find your keys:
 
-    *   `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANONKEY`: In your Supabase project, go to **Project Settings > API**. You'll find the Project URL and the `anon` public key there.
+    *   `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANON_KEY`: In your Supabase project, go to **Project Settings > API**. You'll find the Project URL and the `anon` public key there.
     *   `OPEN_ROUTER_KEY`: Get this key from the [OpenRouter](https://openrouter.ai/keys) website.
     *   `NEXT_PUBLIC_HOST_URL`: For local development, this should be `http://localhost:3000`.
     *   `NEXT_PUBLIC_VAPI_PUBLIC_KEY`: Get this key from your [Vapi AI](https://vapi.ai/) dashboard.
