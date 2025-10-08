@@ -1,10 +1,19 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Create a single supabase client for interacting with your database
+let supabaseInstance = null;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-export const supabase = createClient(
-    supabaseUrl,
-    supabaseKey
-)
+export const supabase = new Proxy({}, {
+    get(target, prop) {
+        if (!supabaseInstance) {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+            const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+            if (supabaseUrl && supabaseKey) {
+                supabaseInstance = createClient(supabaseUrl, supabaseKey);
+            } else {
+                throw new Error('Supabase credentials are not configured');
+            }
+        }
+        return supabaseInstance[prop];
+    }
+});
