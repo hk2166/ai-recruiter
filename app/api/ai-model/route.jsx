@@ -3,12 +3,16 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPEN_ROUTER_KEY,
-});
+const getOpenAI = () => {
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPEN_ROUTER_KEY || "placeholder",
+  });
+};
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+const getGoogleAI = () => {
+  return new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "placeholder");
+};
 
 export async function POST(req) {
   const { jobPosition, jobDescription, duration, type, model } = await req.json();
@@ -25,11 +29,13 @@ export async function POST(req) {
     let completion;
 
     if (model.startsWith("google/")) {
+      const genAI = getGoogleAI();
       const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
       const result = await geminiModel.generateContent(FINAL_PROMPT);
       const response = await result.response;
       completion = response.text();
     } else {
+      const openai = getOpenAI();
       const chatCompletion = await openai.chat.completions.create({
         model: model,
         messages: [{ role: "user", content: FINAL_PROMPT }],

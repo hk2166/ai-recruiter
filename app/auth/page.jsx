@@ -20,39 +20,7 @@ const Login = () => {
   };
 
   return (
-    <>
-      {/* Navbar */}
-      <nav className="flex justify-between items-center px-8 py-4">
-        {/* Logo & Title */}
-        <div className="flex items-center space-x-2">
-          <Link href="/" className="flex items-center space-x-2">
-            <Image
-              src="/logo.png"
-              alt="AIcruiter Logo"
-              width={40}
-              height={40}
-              className="cursor-pointer"
-            />
-            <span className="text-xl font-bold">AIcruiter</span>
-          </Link>
-        </div>
-
-        {/* Nav Links */}
-        <div className="hidden md:flex space-x-6">
-          <button className="text-gray-700 hover:text-black transition">
-            Features
-          </button>
-          <button className="text-gray-700 hover:text-black transition">
-            How It Works
-          </button>
-          <button className="text-gray-700 hover:text-black transition">
-            Pricing
-          </button>
-        </div>
-      </nav>
-
-      {/* Login Section */}
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] px-4">
+    <div className="flex flex-col items-center justify-center min-h-screen px-4">
         <div className="flex flex-col items-center justify-center border rounded-2xl p-8 shadow-lg max-w-md w-full">
           <Image
             className="w-[95px]"
@@ -82,7 +50,6 @@ const Login = () => {
           </div>
         </div>
       </div>
-    </>
   );
 };
 
